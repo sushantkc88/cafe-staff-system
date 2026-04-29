@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Staff Portal</title>
+<style>
+  :root{
+    --bg:#f3eee7; --card:#fffaf3; --accent:#b07a3b; --accent-dark:#8a5f2d;
+    --border:#d3c3aa; --text:#111; --disabled:#6b6b6b;
+    --unread:#4CAF50; --read:#8a5f2d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+  .container{max-width:480px;margin:36px auto;background:var(--card);padding:22px;border-radius:12px;border:1px solid var(--border);box-shadow:0 8px 20px rgba(0,0,0,.06)}
+  h1,h2{margin:0 0 12px;text-align:center}
+  .cafe-name{text-align:center;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:#555;margin-bottom:12px}
+  label{display:block;font-size:13px;margin-top:10px}
+  input{width:100%;padding:10px;margin-top:6px;border-radius:10px;border:1px solid var(--border);font-size:14px;background:#fff;color:var(--text)}
+  button{width:100%;padding:10px;margin-top:10px;border-radius:999px;border:none;font-size:14px;cursor:pointer;background:var(--accent);color:#fff;font-weight:600;box-shadow:0 3px 8px rgba(0,0,0,.12)}
+  button.secondary{background:#e0d4c2;color:#222;box-shadow:none}
+  button:active{transform:scale(.99)}
+  button[disabled]{background:var(--disabled);color:#fff;cursor:not-allowed;opacity:1}
+  .hidden{display:none}
+  table{width:100%;border-collapse:collapse;margin-top:12px;font-size:13px}
+  th,td{border:1px solid var(--border);padding:6px;text-align:center}
+  th{background:#e7dcc9;font-weight:600}
+  .note{font-size:12px;color:#555;text-align:center;margin-top:8px}
+  .small{font-size:12px;color:#444}
+
+  /* Announcement bubbles */
+  .announcement-bubble{
+    max-width:90%;
+    padding:10px 14px;
+    border-radius:12px;
+    margin:10px 0;
+    color:#fff;
+    cursor:pointer;
+    transition:0.2s;
+    text-align:left;
+    box-shadow:0 3px 8px rgba(0,0,0,0.12);
+  }
+  .bubble-unread{background:var(--unread);}
+  .bubble-read{background:var(--read);}
+  .bubble-title{font-weight:600;margin-bottom:4px;}
+  .bubble-message{margin-top:6px;display:none;white-space:pre-wrap;}
+  .bubble-timestamp{font-size:11px;margin-top:6px;opacity:0.9;}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="cafe-name" id="cafeNameDisplay">Your Cafe</div>
+  <h1>Staff Portal</h1>
+
+  <!-- LOGIN -->
+  <div id="loginBox">
+    <h2>Login</h2>
+    <label>Staff Name</label>
+    <input id="loginName" placeholder="e.g. John">
+    <label>PIN</label>
+    <input id="loginPIN" type="password" placeholder="4-digit PIN">
+    <button id="btnLogin" onclick="login()">Login</button>
+    <p id="loginMsg" class="note"></p>
+    <p class="note small">Admin page: open <b>admin.html</b></p>
+  </div>
+
+  <!-- STAFF PAGE -->
+  <div id="staffPage" class="hidden">
+    <h2 id="welcomeText"></h2>
+
+    <!-- ANNOUNCEMENTS -->
+    <h3>Announcements</h3>
+    <div id="announcementList"></div>
+
+    <!-- ACTION BUTTONS -->
+    <label class="small">Actions</label>
+    <button id="btnClockIn" onclick="clockIn()">Clock In</button>
+    <button id="btnBreakStart" onclick="breakStart()">Break Start</button>
+    <button id="btnBreakEnd" onclick="breakEnd()">Break End</button>
+    <button id="btnClockOut" onclick="clockOut()">Clock Out</button>
+
+    <!-- HOURS -->
+    <h3>Your Hours Today</h3>
+    <table>
+      <thead><tr><th>In</th><th>Break Start</th><th>Break End</th><th>Out</th><th>Total (hrs)</th></tr></thead>
+      <tbody id="myHoursBody"></tbody>
+    </table>
+
+    <!-- ROSTER -->
+    <h3>Your Weekly Roster</h3>
+    <table>
+      <thead><tr><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr></thead>
+      <tbody id="myRosterBody"></tbody>
+    </table>
+
+    <button class="secondary" onclick="logout()">Logout</button>
+  </div>
+</div>
+
+<script>
+/* Storage helpers */
+function load(k,d){ try{ return JSON.parse(localStorage.getItem(k)) || d }catch(e){ return d } }
+function save(k,v){ localStorage.setItem(k, JSON.stringify(v)) }
+
+/* Init */
+function init(){
+  const s = load("settings",{cafeName:"Your Cafe"});
+  document.getElementById("cafeNameDisplay").textContent = s.cafeName || "Your Cafe";
+  handleQRClockIn();
+}
+init();
+
+let currentUser = null;
+function today(){ return new Date().toISOString().slice(0,10) }
+function now(){ return new Date().toTimeString().slice(0,8) }
+
+/* LOGIN */
+function login(){
+  const name = document.getElementById("loginName").value.trim();
+  const pin = document.getElementById("loginPIN").value.trim();
+  const staff = load("staff",[]);
+  const found = staff.find(s=>s.name===name && s.pin===pin);
+  if(!found){ document.getElementById("loginMsg").textContent = "Invalid name or PIN"; return; }
+  currentUser = found;
+  document.getElementById("welcomeText").textContent = "Hi " + currentUser.name;
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("staffPage").classList.remove("hidden");
+  renderTodayHours();
+  renderMyRoster();
+  updateButtonsState();
+  renderAnnouncements();
+}
+
+/* LOGOUT */
+function logout(){
+  currentUser = null;
+  document.getElementById("staffPage").classList.add("hidden");
+  document.getElementById("loginBox").classList.remove("hidden");
+  document.getElementById("loginName").value = "";
+  document.getElementById("loginPIN").value = "";
+  document.getElementById("loginMsg").textContent = "";
+}
+
+/* RECORDS */
+function getRecord(name){
+  const records = load("records",[]);
+  const d = today();
+  let r = records.find(x=>x.name===name && x.date===d);
+  if(!r){
+    r = { name, date:d, clockIn:null, breakStart:null, breakEnd:null, clockOut:null, total:null };
+    records.push(r);
+    save("records", records);
+  }
+  return r;
+}
+function updateRecord(rec){
+  const records = load("records",[]);
+  const i = records.findIndex(x=>x.name===rec.name && x.date===rec.date);
+  if(i>=0) records[i]=rec; else records.push(rec);
+  save("records", records);
+}
+function calcTotal(rec){
+  if(!rec.clockIn || !rec.clockOut) return null;
+  let diff = new Date(rec.date + "T" + rec.clockOut) - new Date(rec.date + "T" + rec.clockIn);
+  if(rec.breakStart && rec.breakEnd){
+    diff -= new Date(rec.date + "T" + rec.breakEnd) - new Date(rec.date + "T" + rec.breakStart);
+  }
+  return diff/3600000;
+}
+
+/* ACTIONS */
+function clockIn(){
+  if(!currentUser) return alert("Please login first.");
+  const rec = getRecord(currentUser.name);
+  if(rec.clockIn) return alert("You already clocked in.");
+  rec.clockIn = now();
+  rec.total = calcTotal(rec);
+  updateRecord(rec);
+  renderTodayHours();
+  updateButtonsState();
+}
+function breakStart(){
+  if(!currentUser) return alert("Please login first.");
+  const rec = getRecord(currentUser.name);
+  if(!rec.clockIn) return alert("You must clock in first.");
+  if(rec.breakStart) return alert("You already started your break.");
+  rec.breakStart = now();
+  rec.total = calcTotal(rec);
+  updateRecord(rec);
+  renderTodayHours();
+  updateButtonsState();
+}
+function breakEnd(){
+  if(!currentUser) return alert("Please login first.");
+  const rec = getRecord(currentUser.name);
+  if(!rec.breakStart) return alert("You must start break first.");
+  if(rec.breakEnd) return alert("You already ended your break.");
+  rec.breakEnd = now();
+  rec.total = calcTotal(rec);
+  updateRecord(rec);
+  renderTodayHours();
+  updateButtonsState();
+}
+function clockOut(){
+  if(!currentUser) return alert("Please login first.");
+  const rec = getRecord(currentUser.name);
+  if(!rec.clockIn) return alert("You must clock in first.");
+  if(rec.clockOut) return alert("You already clocked out.");
+  if(rec.breakStart && !rec.breakEnd) return alert("End break before clocking out.");
+  rec.clockOut = now();
+  rec.total = calcTotal(rec);
+  updateRecord(rec);
+  renderTodayHours();
+  updateButtonsState();
+}
+
+/* BUTTON STATE */
+function updateButtonsState(){
+  const btnCI = document.getElementById("btnClockIn");
+  const btnBS = document.getElementById("btnBreakStart");
+  const btnBE = document.getElementById("btnBreakEnd");
+  const btnCO = document.getElementById("btnClockOut");
+  if(!currentUser){
+    btnCI.disabled = btnBS.disabled = btnBE.disabled = btnCO.disabled = true;
+    return;
+  }
+  const r = getRecord(currentUser.name);
+  btnCI.disabled = !!r.clockIn;
+  btnBS.disabled = !r.clockIn || !!r.breakStart;
+  btnBE.disabled = !r.breakStart || !!r.breakEnd;
+  btnCO.disabled = !!r.clockOut || !r.clockIn || (r.breakStart && !r.breakEnd);
+}
+
+/* HOURS */
+function renderTodayHours(){
+  if(!currentUser) return;
+  const r = getRecord(currentUser.name);
+  document.getElementById("myHoursBody").innerHTML = `
+    <tr>
+      <td>${r.clockIn||""}</td>
+      <td>${r.breakStart||""}</td>
+      <td>${r.breakEnd||""}</td>
+      <td>${r.clockOut||""}</td>
+      <td>${r.total ? r.total.toFixed(2) : ""}</td>
+    </tr>
+  `;
+}
+
+/* ROSTER */
+function renderMyRoster(){
+  if(!currentUser) return;
+  const roster = load("roster",{});
+  const r = roster[currentUser.name];
+  const body = document.getElementById("myRosterBody");
+  if(!r){ body.innerHTML = "<tr><td colspan='7'>No roster set</td></tr>"; return; }
+  body.innerHTML = `<tr>
+    <td>${r.Mon||""}</td><td>${r.Tue||""}</td><td>${r.Wed||""}</td>
+    <td>${r.Thu||""}</td><td>${r.Fri||""}</td><td>${r.Sat||""}</td><td>${r.Sun||""}</td>
+  </tr>`;
+}
+
+/* ANNOUNCEMENTS */
+function renderAnnouncements(){
+  const list = document.getElementById("announcementList");
+  list.innerHTML = "";
+  const announcements = load("announcements",[]);
+  if(!announcements.length){
+    list.innerHTML = "<p class='small'>No announcements</p>";
+    return;
+  }
+  announcements.forEach(a=>{
+    const isRead = a.readBy && a.readBy.includes(currentUser.name);
+    const bubble = document.createElement("div");
+    bubble.className = "announcement-bubble " + (isRead ? "bubble-read" : "bubble-unread");
+    bubble.innerHTML = `
+      <div class="bubble-title">Manager: ${a.title}</div>
+      <div class="bubble-message">${a.message}</div>
+      <div class="bubble-timestamp">${a.timestamp}</div>
+    `;
+    bubble.onclick = ()=> toggleAnnouncement(a.id, bubble);
+    list.appendChild(bubble);
+  });
+}
+
+function toggleAnnouncement(id, bubble){
+  const announcements = load("announcements",[]);
+  const a = announcements.find(x=>x.id===id);
+  if(!a) return;
+
+  const msg = bubble.querySelector(".bubble-message");
+  msg.style.display = msg.style.display==="block" ? "none" : "block";
+
+  if(!a.readBy.includes(currentUser.name)){
+    a.readBy.push(currentUser.name);
+    save("announcements", announcements);
+    bubble.classList.remove("bubble-unread");
+    bubble.classList.add("bubble-read");
+  }
+}
+
+/* QR AUTO CLOCK-IN */
+function handleQRClockIn(){
+  const params = new URLSearchParams(window.location.search);
+  if(!params.has("clockin")) return;
+  const staffName = params.get("clockin");
+  const staff = load("staff",[]);
+  if(!staff.find(s=>s.name===staffName)) return alert("Unknown staff for QR.");
+  const records = load("records",[]);
+  const d = today();
+  let rec = records.find(x=>x.name===staffName && x.date===d);
+  if(!rec){
+    rec = { name:staffName, date:d, clockIn:null, breakStart:null, breakEnd:null, clockOut:null, total:null };
+    records.push(rec);
+  }
+  if(rec.clockIn){
+    alert(staffName + " already clocked in today.");
+    return;
+  }
+  rec.clockIn = now();
+  rec.total = calcTotal(rec);
+  save("records", records);
+  alert(staffName + " clocked in via QR.");
+}
+
+/* INIT */
+document.addEventListener("DOMContentLoaded", ()=>{ updateButtonsState(); });
+</script>
+</body>
+</html>
