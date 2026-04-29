@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Admin Panel</title>
+<style>
+  :root{
+    --bg:#f3eee7; --card:#fffaf3; --accent:#b07a3b; --accent-dark:#8a5f2d;
+    --border:#d3c3aa; --text:#111; --danger:#c0392b; --disabled:#6b6b6b;
+    --unread:#4CAF50; --read:#8a5f2d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;background:var(--bg);color:var(--text)}
+  .container{max-width:980px;margin:28px auto;background:var(--card);padding:20px;border-radius:12px;border:1px solid var(--border);box-shadow:0 8px 20px rgba(0,0,0,.06)}
+  h1,h2{margin:0 0 12px}
+  label{display:block;font-size:13px;margin-top:8px}
+  input,select,textarea{
+    width:100%;padding:8px;margin-top:6px;border-radius:10px;
+    border:1px solid var(--border);font-size:13px;background:#fff;color:var(--text)
+  }
+  textarea{resize:vertical;min-height:80px}
+  button{
+    padding:8px 14px;margin-top:10px;border:none;border-radius:999px;
+    font-size:13px;cursor:pointer;background:var(--accent);color:#fff;
+    font-weight:600;box-shadow:0 3px 8px rgba(0,0,0,.12)
+  }
+  button.secondary{background:#e0d4c2;color:#222;box-shadow:none}
+  button.danger{background:var(--danger)}
+  button:active{transform:scale(.99)}
+  .section{margin-top:18px;border-top:1px solid #e0d4c2;padding-top:14px}
+  table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+  th,td{border:1px solid var(--border);padding:6px;text-align:center}
+  th{background:#e7dcc9;font-weight:600}
+  .note{font-size:12px;color:#555}
+  .flex{display:flex;gap:12px;flex-wrap:wrap}
+  .flex>div{flex:1;min-width:160px}
+  pre{background:#f7f1e6;padding:10px;border-radius:10px;border:1px solid var(--border);font-size:13px}
+
+  .admin-announcement{
+    background:#f7f1e6;border:1px solid var(--border);
+    padding:10px;border-radius:10px;margin:10px 0;
+  }
+  .admin-announcement-title{font-weight:600;margin-bottom:4px}
+  .admin-announcement-meta{font-size:12px;color:#555;margin-top:4px}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Admin Panel</h1>
+  <p class="note">Staff portal: <b>index.html</b> &nbsp; | &nbsp; QR page: <b>qr.html</b></p>
+
+  <!-- ADMIN LOGIN -->
+  <div id="adminLoginBox">
+    <h2>Admin Login</h2>
+    <label>Admin PIN</label>
+    <input id="adminPINInput" type="password" placeholder="Default 9999">
+    <button onclick="adminLogin()">Login</button>
+    <p id="adminLoginMsg" class="note"></p>
+  </div>
+
+  <!-- ADMIN CONTENT -->
+  <div id="adminContent" class="hidden">
+
+    <!-- SETTINGS -->
+    <div class="section">
+      <h2>Settings</h2>
+      <div class="flex">
+        <div>
+          <label>Cafe Name</label>
+          <input id="cafeNameInput">
+        </div>
+        <div>
+          <label>Manager WhatsApp Number (no +, e.g. 614xxxxxxxx)</label>
+          <input id="managerNumberInput">
+        </div>
+      </div>
+      <div class="flex">
+        <div>
+          <label>Admin PIN</label>
+          <input id="adminPINNew" type="password">
+        </div>
+        <div style="display:flex;align-items:flex-end;">
+          <button onclick="saveSettings()">Save Settings</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAFF MANAGEMENT -->
+    <div class="section">
+      <h2>Staff Management</h2>
+      <div class="flex">
+        <div><label>Staff Name</label><input id="staffNameInput"></div>
+        <div><label>PIN</label><input id="staffPINInput"></div>
+        <div><label>Phone (WhatsApp)</label><input id="staffPhoneInput" placeholder="614xxxxxxxx"></div>
+      </div>
+      <button onclick="addStaff()">Add Staff</button>
+
+      <h3>Staff List</h3>
+      <table>
+        <thead><tr><th>Name</th><th>Phone</th><th>PIN</th><th>Actions</th></tr></thead>
+        <tbody id="staffTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- ROSTER -->
+    <div class="section">
+      <h2>Roster</h2>
+      <label>Select Staff</label>
+      <select id="rosterStaffSelect" onchange="loadRosterForStaff()"></select>
+
+      <div class="flex">
+        <div><label>Mon</label><input id="rMon"></div>
+        <div><label>Tue</label><input id="rTue"></div>
+        <div><label>Wed</label><input id="rWed"></div>
+        <div><label>Thu</label><input id="rThu"></div>
+      </div>
+
+      <div class="flex">
+        <div><label>Fri</label><input id="rFri"></div>
+        <div><label>Sat</label><input id="rSat"></div>
+        <div><label>Sun</label><input id="rSun"></div>
+      </div>
+
+      <button onclick="saveRoster()">Save Roster</button>
+
+      <h3>Full Roster View</h3>
+      <table>
+        <thead><tr><th>Staff</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr></thead>
+        <tbody id="rosterTableBody"></tbody>
+      </table>
+    </div>
+
+    <!-- ANNOUNCEMENTS -->
+    <div class="section">
+      <h2>Announcements</h2>
+
+      <label>Title</label>
+      <input id="annTitle">
+
+      <label>Message</label>
+      <textarea id="annMessage"></textarea>
+
+      <button onclick="postAnnouncement()">Post Announcement</button>
+
+      <h3>All Announcements</h3>
+      <div id="adminAnnouncementList"></div>
+
+      <button class="danger" onclick="clearAllAnnouncements()">Clear All Announcements</button>
+    </div>
+
+    <!-- HOURS & WHATSAPP -->
+    <div class="section">
+      <h2>Hours & WhatsApp</h2>
+      <button onclick="renderAllRecords()">Refresh Records</button>
+
+      <table>
+        <thead><tr><th>Name</th><th>Date</th><th>In</th><th>B.Start</th><th>B.End</th><th>Out</th><th>Total</th></tr></thead>
+        <tbody id="recordsTableBody"></tbody>
+      </table>
+
+      <h3>Weekly Summary</h3>
+      <button onclick="generateWeeklySummary()">Generate Summary</button>
+      <pre id="weeklySummaryBox"></pre>
+
+      <button onclick="sendSummaryToManager()">Send Summary to Manager via WhatsApp</button>
+
+      <h3>Send Individual Staff Hours via WhatsApp</h3>
+      <table>
+        <thead><tr><th>Staff</th><th>Phone</th><th>Weekly Hours</th><th>WhatsApp</th></tr></thead>
+        <tbody id="staffWhatsTableBody"></tbody>
+      </table>
+
+      <div style="margin-top:12px;">
+        <button class="danger" onclick="clearThisWeekLogs()">Clear This Week's Logs (Admin only)</button>
+      </div>
+    </div>
+
+    <!-- QR -->
+    <div class="section">
+      <h2>QR Codes</h2>
+      <p class="note">Open <b>qr.html</b> to generate QR codes for each staff.</p>
+    </div>
+
+  </div>
+</div>
+
+<script>
+function load(k,d){ try{ return JSON.parse(localStorage.getItem(k)) || d }catch(e){ return d } }
+function save(k,v){ localStorage.setItem(k, JSON.stringify(v)) }
+
+/* ADMIN LOGIN */
+function adminLogin(){
+  const input = document.getElementById("adminPINInput").value.trim();
+  const settings = load("settings",{adminPIN:"9999"});
+  if(input === settings.adminPIN){
+    document.getElementById("adminLoginBox").classList.add("hidden");
+    document.getElementById("adminContent").classList.remove("hidden");
+    initSettingsUI();
+    renderStaff();
+    fillRosterStaffSelect();
+    renderRosterTable();
+    renderAllRecords();
+    renderStaffWhatsTable();
+    renderAdminAnnouncements();
+  } else {
+    document.getElementById("adminLoginMsg").textContent = "Wrong PIN";
+  }
+}
+
+/* SETTINGS */
+function initSettingsUI(){
+  const s = load("settings",{cafeName:"Your Cafe",managerNumber:"",adminPIN:"9999"});
+  document.getElementById("cafeNameInput").value = s.cafeName;
+  document.getElementById("managerNumberInput").value = s.managerNumber;
+  document.getElementById("adminPINNew").value = s.adminPIN;
+}
+function saveSettings(){
+  const cafeName = document.getElementById("cafeNameInput").value.trim() || "Your Cafe";
+  const managerNumber = document.getElementById("managerNumberInput").value.trim();
+  const adminPIN = document.getElementById("adminPINNew").value.trim() || "9999";
+  save("settings",{cafeName,managerNumber,adminPIN});
+  alert("Settings saved");
+}
+
+/* STAFF MANAGEMENT */
+function addStaff(){
+  const name = document.getElementById("staffNameInput").value.trim();
+  const pin = document.getElementById("staffPINInput").value.trim();
+  const phone = document.getElementById("staffPhoneInput").value.trim();
+  if(!name || !pin){ alert("Name and PIN required"); return; }
+  const staff = load("staff",[]);
+  if(staff.find(s=>s.name===name)){ alert("Staff name already exists"); return; }
+  staff.push({name,pin,phone});
+  save("staff",staff);
+  document.getElementById("staffNameInput").value = "";
+  document.getElementById("staffPINInput").value = "";
+  document.getElementById("staffPhoneInput").value = "";
+  renderStaff();
+  fillRosterStaffSelect();
+  renderStaffWhatsTable();
+}
+function removeStaff(name){
+  if(!confirm("Remove " + name + "?")) return;
+  let staff = load("staff",[]);
+  staff = staff.filter(s=>s.name!==name);
+  save("staff",staff);
+  renderStaff();
+  fillRosterStaffSelect();
+  renderStaffWhatsTable();
+}
+function renderStaff(){
+  const staff = load("staff",[]);
+  const body = document.getElementById("staffTableBody");
+  body.innerHTML = "";
+  staff.forEach(s=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${s.name}</td><td>${s.phone||""}</td><td>${s.pin}</td>
+      <td><button class="danger" onclick="removeStaff('${s.name}')">Remove</button></td>`;
+    body.appendChild(tr);
+  });
+}
+
+/* ROSTER */
+function fillRosterStaffSelect(){
+  const staff = load("staff",[]);
+  const sel = document.getElementById("rosterStaffSelect");
+  sel.innerHTML = "<option value=''>Select staff</option>";
+  staff.forEach(s=>{
+    const opt=document.createElement("option");
+    opt.value=s.name;
+    opt.textContent=s.name;
+    sel.appendChild(opt);
+  });
+}
+function loadRosterForStaff(){
+  const name = document.getElementById("rosterStaffSelect").value;
+  const roster = load("roster",{});
+  const r = roster[name] || {Mon:"",Tue:"",Wed:"",Thu:"",Fri:"",Sat:"",Sun:""};
+  document.getElementById("rMon").value = r.Mon;
+  document.getElementById("rTue").value = r.Tue;
+  document.getElementById("rWed").value = r.Wed;
+  document.getElementById("rThu").value = r.Thu;
+  document.getElementById("rFri").value = r.Fri;
+  document.getElementById("rSat").value = r.Sat;
+  document.getElementById("rSun").value = r.Sun;
+}
+function saveRoster(){
+  const name = document.getElementById("rosterStaffSelect").value;
+  if(!name){ alert("Select staff"); return; }
+  const roster = load("roster",{});
+  roster[name] = {
+    Mon:document.getElementById("rMon").value,
+    Tue:document.getElementById("rTue").value,
+    Wed:document.getElementById("rWed").value,
+    Thu:document.getElementById("rThu").value,
+    Fri:document.getElementById("rFri").value,
+    Sat:document.getElementById("rSat").value,
+    Sun:document.getElementById("rSun").value
+  };
+  save("roster",roster);
+  alert("Roster saved");
+  renderRosterTable();
+}
+function renderRosterTable(){
+  const roster = load("roster",{});
+  const body = document.getElementById("rosterTableBody");
+  body.innerHTML = "";
+  Object.keys(roster).forEach(name=>{
+    const r = roster[name];
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${name}</td><td>${r.Mon||""}</td><td>${r.Tue||""}</td><td>${r.Wed||""}</td>
+      <td>${r.Thu||""}</td><td>${r.Fri||""}</td><td>${r.Sat||""}</td><td>${r.Sun||""}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+/* ANNOUNCEMENTS */
+function postAnnouncement(){
+  const title = document.getElementById("annTitle").value.trim();
+  const message = document.getElementById("annMessage").value.trim();
+  if(!title || !message){ alert("Title and message required"); return; }
+
+  const announcements = load("announcements",[]);
+  const timestamp = new Date().toLocaleString();
+
+  announcements.push({
+    id: Date.now(),
+    title,
+    message,
+    timestamp,
+    readBy:[]
+  });
+
+  save("announcements", announcements);
+
+  document.getElementById("annTitle").value = "";
+  document.getElementById("annMessage").value = "";
+
+  renderAdminAnnouncements();
+  alert("Announcement posted");
+}
+
+function renderAdminAnnouncements(){
+  const list = document.getElementById("adminAnnouncementList");
+  list.innerHTML = "";
+  const announcements = load("announcements",[]);
+  if(!announcements.length){
+    list.innerHTML = "<p class='note'>No announcements</p>";
+    return;
+  }
+  announcements.forEach(a=>{
+    const div = document.createElement("div");
+    div.className = "admin-announcement";
+    div.innerHTML = `
+      <div class="admin-announcement-title">${a.title}</div>
+      <div>${a.message}</div>
+      <div class="admin-announcement-meta">
+        Posted: ${a.timestamp} | Read by: ${a.readBy.length}
+      </div>
+      <button class="danger" onclick="deleteAnnouncement(${a.id})">Delete</button>
+    `;
+    list.appendChild(div);
+  });
+}
+
+function deleteAnnouncement(id){
+  if(!confirm("Delete this announcement?")) return;
+  let announcements = load("announcements",[]);
+  announcements = announcements.filter(a=>a.id!==id);
+  save("announcements", announcements);
+  renderAdminAnnouncements();
+}
+
+function clearAllAnnouncements(){
+  if(!confirm("Clear ALL announcements?")) return;
+  save("announcements", []);
+  renderAdminAnnouncements();
+}
+
+/* HOURS */
+function renderAllRecords(){
+  const records = load("records",[]);
+  const body = document.getElementById("recordsTableBody");
+  body.innerHTML = "";
+  records.forEach(r=>{
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<td>${r.name}</td><td>${r.date}</td><td>${r.clockIn||""}</td><td>${r.breakStart||""}</td>
+      <td>${r.breakEnd||""}</td><td>${r.clockOut||""}</td><td>${r.total ? r.total.toFixed(2) : ""}</td>`;
+    body.appendChild(tr);
+  });
+}
+
+/* WEEKLY SUMMARY */
+function getWeekStart(d){
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day + 1;
+  return new Date(date.setDate(diff));
+}
+function generateWeeklySummary(){
+  const records = load("records",[]);
+  const now = new Date();
+  const weekStart = getWeekStart(now);
+  const weekEnd = new Date(weekStart); 
+  weekEnd.setDate(weekEnd.getDate()+7);
+
+  const totals = {};
+  records.forEach(r=>{
+    const d
